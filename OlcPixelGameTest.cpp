@@ -1,33 +1,42 @@
 #define _SILENCE_EXPERIMENTAL_FILESYSTEM_DEPRECATION_WARNING
 #define OLC_PGE_APPLICATION
 #include "olcPixelGameEngine.h"
+#include <math.h>
+#include <string.h>
+#include <stdlib.h>
 
 class Boid {
 public:
-	olc::v2d_generic<int> position;
-	int angle;
-	int speed;
+	olc::v2d_generic<float> position;
+	float angle;
+	float speed;
+	olc::Pixel colour;
 	Boid() {
-		position = { 0,0 };
-		this->angle = 0;
-		this->speed = 0;
+		position = { 0.0f,0.0f };
+		this->angle = 0.0f;
+		this->speed = 0.0f;
+		colour = olc::RED;
 	}
-	Boid(int x, int y, int angle, int speed) {
+	Boid(float x, float y, float angle, float speed, olc::Pixel colour) {
 		position = {x,y};
 		this->angle = angle;
 		this->speed = speed;
+		this->colour = colour;
 	}
 };
 
-class Example : public olc::PixelGameEngine
-{
+class Example : public olc::PixelGameEngine {
 public:
-	Boid b;
-	float time = 0.0f;
+	//Boid b;
+	int boidCount = 20;
+	Boid boids[20];
+	int random = 0;
 	Example()
 	{
-		sAppName = "Example";
-		b = Boid(100, 100, 0, 2);
+		sAppName = "Boids";
+		for (int i = 0; i < boidCount; i++) {
+			boids[i] = Boid(100.0f, 100.0f, (rand() % 360), 20.0f, olc::RED);
+		}
 	}
 
 	bool OnUserCreate() override
@@ -38,40 +47,70 @@ public:
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
-		time += fElapsedTime;
-		if (time > 0.0166f) { // update every once every 60th of a second.
-			time = 0;
-			b.position.y -= b.speed;
-			if (b.position.y > 240) 
-				b.position.y = 0;
-			if (b.position.y < 0) 
-				b.position.y = 240;
-		}
+		/*
+		// Steering
+		// Turn left
+			b.angle -= 1.0f * fElapsedTime;
+		// Turn Right
+			b.angle += 1.0f * fElapsedTime;
+		// Move
+			b.position.x += sin(b.angle) * b.speed * fElapsedTime;
+			b.position.y -= cos(b.angle) * b.speed * fElapsedTime;
+		*/
 		
-		// called once per frame
-		clearScreen(olc::BLACK);
-		drawBoid(b);
+		Clear(olc::BLACK);
+
+		// Boid Logic
+		for (int i = 0; i < boidCount; i++) {
+			boids[i].position.x += sin(boids[i].angle) * boids[i].speed * fElapsedTime;
+			boids[i].position.y -= cos(boids[i].angle) * boids[i].speed * fElapsedTime;
+			SetBoundry(boids[i].position.x, boids[i].position.y);
+			DrawBoid(boids[i]);
+		}
+
+		// Print Example
+		//DrawString({ 0,200 }, "r: " + std::to_string(b.angle), olc::GREEN);
 		return true;
 	}
 
-	void clearScreen(olc::Pixel p) {
-		for (int x = 0; x < ScreenWidth(); x++)
-			for (int y = 0; y < ScreenHeight(); y++)
-				Draw(x, y, p);
-	};
+	void DrawBoid(Boid b, bool showRay = false) {
+		// Initial points
+		float x[3] = { 0.0f, -5.0f, 5.0f, },
+			  y[3] = { -10.0f, 5.0f, 5.0f, };
+		// Transformed points
+		float tx[3], ty[3];
+		// Rotate and Translate
+		for (int i = 0; i < 3; i++) {
+			tx[i] = x[i] * cos(b.angle) - y[i] * sin(b.angle);
+			tx[i] += b.position.x;
+			ty[i] = y[i] * cos(b.angle) + x[i] * sin(b.angle);
+			ty[i] += b.position.y;
+		}
+		// Draw
+		DrawTriangle(
+			tx[0], ty[0],
+			tx[1], ty[1],
+			tx[2], ty[2],b.colour);
+	}
 
-	void drawBoid(Boid b, bool showRay = false) {
-		int x = b.position.x;
-		int y = b.position.y;
-		DrawTriangle(x, y, x-5, y+10, x+5, y+10, olc::RED);
-		Draw(x, y, olc::RED);
+	void SetBoundry(float& x, float& y) {
+		if (x > ScreenWidth())	x = 0;
+		if (x < 0)				x = ScreenWidth();
+		if (y > ScreenHeight())	y = 0;
+		if (y < 0)				y = ScreenHeight();
+	}
+	
+	virtual bool Draw(int32_t x, int32_t y, olc::Pixel p = olc::WHITE){
+		float fx = x, fy = y;
+		SetBoundry(fx, fy);
+		return olc::PixelGameEngine::Draw(fx, fy, p);
 	}
 };
 
 int main()
 {
 	Example demo;
-	if (demo.Construct(256, 240, 1, 1))
+	if (demo.Construct(256, 240, 4, 4))
 		demo.Start();
 	return 0;
 }
