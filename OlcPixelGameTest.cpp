@@ -27,24 +27,24 @@ public:
 
 class Example : public olc::PixelGameEngine {
 public:
-	//Boid b;
-	static const int boidCount = 300;
+	static const int boidCount = 1;
 	Boid boids[boidCount];
-	//Boid b;
+	Boid b;
 	float pi = 3.14159f;
+	float turnSpeed = pi / 2;
 	
 	Example() {
 		std::default_random_engine generate;
 		std::uniform_int_distribution<int> width(0, ScreenWidth());
 		std::uniform_int_distribution<int> height(0, ScreenHeight());
 		std::uniform_real_distribution<float> angle(0, 2*pi);
-		std::uniform_int_distribution<int> byte(0, 255);
+		std::uniform_int_distribution<int> byte(25, 255);
 		
 		sAppName = "Boids";
 		for (int i = 0; i < boidCount; i++) {
-			boids[i] = Boid(width(generate), height(generate), (angle(generate)), 50.0f, olc::Pixel(0,byte(generate), byte(generate)));
+			boids[i] = Boid(width(generate), height(generate), (angle(generate)), 50.0f, olc::Pixel(byte(generate), 0, byte(generate)));
 		}
-		//b = Boid(100.0f, 100.0f, 2*pi, 50.0f, olc::GREEN);
+		b = Boid(100.0f, 100.0f, 2*pi, 50.0f, olc::GREEN);
 	}
 
 	bool OnUserCreate() override
@@ -55,7 +55,7 @@ public:
 
 	bool OnUserUpdate(float fElapsedTime) override
 	{
-		/* Controls for test boid
+		/* Controls for test boid*/
 		// Steering
 		// Turn left
 		if (GetKey(olc::A).bHeld)
@@ -63,51 +63,95 @@ public:
 		// Turn Right
 		else if (GetKey(olc::D).bHeld)
 			b.angle += 1.0f * fElapsedTime;
-		//if (b.angle > pi) b.angle = -pi;
-		//if (b.angle < -pi) b.angle = pi;
 		// Move
 		if (GetKey(olc::W).bHeld) {
 			b.position.x += sin(b.angle) * b.speed * fElapsedTime;
 			b.position.y -= cos(b.angle) * b.speed * fElapsedTime;
 		}
-		*/
+		
 		Clear(olc::BLACK);
 
 		// Boid Logic
 		for (int i = 0; i < boidCount; i++) {
 			// Avoid Other Boids
-				
-			// Go in the same direction as other boids
+			/*
 			{
-				/* WIP: Follow Mouse */
-				//if (isInDistance(boids[i].position, GetMouseX(), GetMouseY(), 30)) {
-					//float angle = atan2(boids[i].position.y - GetMouseY(), boids[i].position.x - GetMouseX()) + (pi / 2);
-					//DrawString({ 0,0 }, "Angle: " + std::to_string(angle), olc::GREEN);
-					//DrawString({ GetMouseX(),GetMouseY() }, "Pos: " + std::to_string(GetMouseX()) + "," + std::to_string(GetMouseY()), olc::GREEN);
-					//boids[i].angle += Align(b.angle, angle) * fElapsedTime;
-				//}
-
-				//if (isInDistance(boids[i].position, b.position)) {
-				//	boids[i].angle += Align(b.angle, boids[i].angle) * fElapsedTime;// * 10;
-				//}
-
 				for (int ii = 0; ii < boidCount; ii++) {
-					if (i == ii) continue;
-					if (!isInDistance(boids[i].position, boids[ii].position)) continue;
-					boids[i].angle += Align(boids[ii].angle, boids[i].angle) * fElapsedTime;
+					if (isInDistance(boids[ii].position, boids[i].position, 20)) {
+						float angle = findAngle({ boids[i].position.x, boids[i].position.y },
+							{ boids[ii].position.x, boids[ii].position.y });
+						if (angle < boids[i].angle) {
+							boids[i].angle += -turnSpeed * fElapsedTime;
+						}
+						else if (angle > boids[i].angle) {
+							boids[i].angle += turnSpeed * fElapsedTime;
+						}
+					}
 				}
 			}
+			*/
+			
+			
+			// Go in the same direction as other boids
+			{
+				//boids[i].angle += turnSpeed * Align(boids[i].angle, boids[ii].angle) * fElapsedTime;
+				float angle = findAngle({ boids[i].position.x, boids[i].position.y }, { (float)GetMouseX(),(float)GetMouseY() });
+				
+				/*while (true) {
+					float delta = angle - boids[i].angle;
+					if (abs(delta) > pi)	break;
+					if (delta > 0)			angle += pi;
+					if (delta < 0)			angle -= pi;
+					else break;
+				}*/
+				
+				//DrawString({ 0,0 }, std::to_string(angle - boids[i].angle));
+				//DrawString({ (int)boids[i].position.x,(int)boids[i].position.y + 10 }, "cAngle: " + std::to_string(angle), boids[i].colour);
+				boids[i].angle += turnSpeed * Align(boids[i].angle, angle) * fElapsedTime;
+				
+				/*for (int ii = 0; ii < boidCount; ii++) {
+					if (i == ii) continue;
+					if (!isInDistance(boids[i].position, boids[ii].position, 20)) continue;
+					boids[i].angle += turnSpeed * Align(boids[i].angle, boids[ii].angle) * fElapsedTime;
+				}*/
+			}
+			
 			// Fly in the center of other boids
+			/*
+			{
+				if (boidCount == 1) continue;
+				float avgX = 0;
+				float avgY = 0;
+				for (int ii = 0; ii < boidCount; ii++) {
+					if (i == ii) continue;
+					if (!isInDistance(boids[i].position, boids[ii].position, 20)) continue;
+					avgX += boids[ii].position.x;
+					avgY += boids[ii].position.y;
+					//boids[i].angle += turnSpeed * Align(boids[i].angle, boids[ii].angle) * fElapsedTime;
+				}
+				avgX = avgX / boidCount - 1;
+				avgX = avgY / boidCount - 1;
+				float angle = findAngle({ boids[i].position.x,boids[i].position.y }, { avgX,avgY });
+				if (angle < boids[i].angle) {
+					boids[i].angle += -turnSpeed * fElapsedTime;
+				}
+				else if (angle > boids[i].angle) {
+					boids[i].angle += turnSpeed * fElapsedTime;
+				}
+			}
+			*/
 			
 			// Update boid collection position
-			boids[i].position.x += sin(boids[i].angle) * boids[i].speed * fElapsedTime;
-			boids[i].position.y -= cos(boids[i].angle) * boids[i].speed * fElapsedTime;
+			//boids[i].position.x += sin(boids[i].angle) * boids[i].speed * fElapsedTime;
+			//boids[i].position.y -= cos(boids[i].angle) * boids[i].speed * fElapsedTime;
 			SetBoundry(boids[i].position.x, boids[i].position.y);
 			DrawBoid(boids[i]);
+			DrawString({ (int)boids[i].position.x,(int)boids[i].position.y }, "Angle: " + std::to_string(boids[i].angle),boids[i].colour);
 		}
 		// Update main boid position
-		//SetBoundry(b.position.x, b.position.y);
+		SetBoundry(b.position.x, b.position.y);
 		//DrawBoid(b);
+		//DrawString({ (int)b.position.x,(int)b.position.y }, "Angle: " + std::to_string(b.angle),b.colour);
 		return true;
 	}
 
@@ -133,6 +177,10 @@ public:
 		
 	}
 
+	float findAngle(olc::vd2d pointA, olc::vd2d pointB) {
+		return atan2(pointB.x - pointA.x, pointA.y - pointB.y);
+	}
+
 	void SetBoundry(float& x, float& y) {
 		if (x >= ScreenWidth())	
 			x = 0;
@@ -145,9 +193,13 @@ public:
 	}
 	
 	int Align(float& angleA, float& angleB) {
-		if (angleA > angleB)
+		/*float deltaAng = angleB - angleA;
+		float d = abs(-angleA + (angleB - (2 * pi)));
+		DrawString({ 0,0 }, std::to_string(deltaAng));
+		DrawString({ 0,10 }, std::to_string(d));*/
+		if (angleB > angleA)
 			return 1;
-		if (angleA < angleB)
+		if (angleB < angleA)
 			return -1;
 		return 0;
 	}
@@ -167,15 +219,17 @@ public:
 	virtual bool Draw(int32_t x, int32_t y, olc::Pixel p = olc::WHITE){
 		float fx = x, fy = y;
 		SetBoundry(fx, fy);
-		return olc::PixelGameEngine::Draw(fx, fy, p);
+		return olc::PixelGameEngine::Draw((int)fx, (int)fy, p);
 	}
+
+	
 };
 
 int main()
 {
 	Example demo;
 	if (demo.Construct(256, 240, 4, 4))
-	//if (demo.Construct(1920, 1080, 4, 4))
+	//if (demo.Construct(1920/4, 1080/4, 4, 4))
 	//if (demo.Construct(480, 270, 4, 4))
 		demo.Start();
 	return 0;
